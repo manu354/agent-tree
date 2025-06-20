@@ -1,0 +1,8 @@
+After the tree recurses to the level of all leaf nodes (i.e. every branch now ends in a leaf, no node is yet to potentially divide)
+I want to be able to pause the system here, until the user writes resume into the console.
+
+this way, once the problem has been decomposed into its recursive tree structure
+the human user can explore the .md files created, modify them, provide feedback
+, etc
+
+this way, when the user hits resume, the processing will continue, but incorporate the users feedback

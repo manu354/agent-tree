@@ -1,0 +1,21 @@
+First understand this system's goal and vision. Then ensure agent_tree_simple follows this general idea. (The system has evolved since writing this prompt and may already satisfy the requirements):
+
+
+Currently the check_complexity approach is quite bad. We just want this to return simple/complex.
+
+Actually, what we want is even simpler:
+We want the prompt to break tasks into subtasks and specify whether each subtask is simple or complex. If "simple", the child process spawns with "simple" mode on (i.e., it's a leaf node that cannot recurse).
+
+STEPS to PLAN & EXECUTE CHILDREN: Otherwise, we tell the prompt to identify how to break the problem into sub-problems, their execution order, what context they need from parent/ancestor hierarchy, and any sibling task knowledge or dependencies. Provide all useful context for child Claude processes without irrelevant information. Then run our recursive tree agent on each task.
+
+This means the n=0 case (always recurse) differs from the default case (recursive/dynamically choose) and the leaf case (always directly solve, no recursion).
+
+However, it may be better if each case is the same (always recursive). This lowers complexity. The n=0 case can also be a simple problem. This would require changing the prompt to: first check complexity, then if simple -> just call Claude, else -> call Claude to break into subchunks and run Claude on each. But this is less efficient performance-wise!
+
+The most performant approach uses different cases for start and leaf nodes:
+
+- Check complexity with one LLM API call (via zen server HTTP request)
+- If simple: just run Claude
+- If complex: run Claude in plan mode to execute STEPS to PLAN & EXECUTE CHILDREN (mentioned above) and output the subtask list
+
+END OLD PROMPT

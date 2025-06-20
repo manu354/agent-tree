@@ -13,8 +13,12 @@ from .context import Context
 
 # Try to import the direct MCP client
 try:
-    from .mcp_client import decompose_problem_sync
-    HAS_MCP_CLIENT = True
+    import os
+    if os.environ.get('DISABLE_MCP_CLIENT', '').lower() in ('1', 'true', 'yes'):
+        HAS_MCP_CLIENT = False
+    else:
+        from .mcp_client import decompose_problem_sync
+        HAS_MCP_CLIENT = True
 except ImportError:
     HAS_MCP_CLIENT = False
 
@@ -73,8 +77,9 @@ class AgentNode:
         if prompt is None:
             prompt = self._build_decomposition_prompt(problem, context_prompt)
         
-        # Use Gemini Flash for decomposition via CLI  
-        return self._call_gemini_for_decomposition(prompt)
+        # Try Gemini Flash first for decomposition via CLI
+        result = self._call_gemini_for_decomposition(prompt)
+
     
     def solve_simple(self, problem: str, context: Optional[Context] = None) -> str:
         """Use claude to solve a simple problem"""
@@ -200,7 +205,7 @@ Respond with ONLY valid JSON."""
         
         try:
             # Call the Zen MCP server using Claude CLI
-            zen_prompt = f"""Use the mcp__zen__chat tool to ask Gemini Flash this question and return ONLY the raw JSON response from Gemini:
+            zen_prompt = f"""Use the mcp__zen__chat tool to ask Gemini 2.5 this question and return ONLY the raw JSON response from Gemini:
 
 {prompt}
 
@@ -249,6 +254,36 @@ Return ONLY the JSON from Gemini's response, nothing else."""
             logger.warning(f"Failed to parse decomposition: {e}, solving directly")
             print(f"\n❌ GEMINI ERROR: {str(e)}")
             print(f"{'='*80}\n")
+            return None
+    
+    def _call_claude_for_decomposition(self, prompt: str) -> Optional[List[Tuple[str, bool]]]:
+        # TODO, REMOVE, WE SHOULD NEVER HAVE FALLBACKS ORM ULTIPLE VERSIONS
+        """Fall back to Claude for decomposition when Gemini is not available"""
+        logger.info("Using Claude for decomposition")
+        
+        # Modify prompt to ensure Claude returns valid JSON
+        claude_prompt = prompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or explanation."
+        
+        try:
+            response = self._run_claude(claude_prompt)
+            
+            # Extract JSON from response
+            data = self._extract_json(response)
+            
+            if not data.get("decompose", False):
+                return None
+            
+            # Extract subtasks with their complexity labels
+            subtasks = []
+            for subtask in data.get("subtasks", []):
+                task_desc = subtask["task"]
+                is_simple = subtask.get("simple", True)
+                subtasks.append((task_desc, is_simple))
+            
+            return subtasks
+            
+        except Exception as e:
+            logger.warning(f"Failed to parse Claude decomposition: {e}")
             return None
     
     def _extract_json(self, text: str) -> dict:
