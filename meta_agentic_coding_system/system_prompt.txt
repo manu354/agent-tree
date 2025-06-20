@@ -1,0 +1,10 @@
+
+Solve {{TASK_DESCRIPTION}}
+- Make sure you follow @problem-solving-meta-strategy.md to solve this
+
+You also have the list of following rules that you should read whenever it is relevant to read them:
+In @useful_rules:
+    /useful_rules/complex-problem-solving-meta-strategy.mdc -> READ WHEN PROBLEM HAS COMPLEXITY THAT WOULD LIKELY TAKE A SENIOR ENGINEER MORE THAN AN HOUR TO Solve
+    /useful_rules/problem-solving-meta-strategy.mdc -> READ AT THE START OF EVERY TASK to understand and plan approach
+    /useful_rules/if-over-read-bible.mdc -> READ WHENEVER YOU THINK YOU HAVE WRITTEN A SIGNIFICANT AMOUNT OF CODE to review adherence to tech debt rules
+    /useful_rules/git-commit.mdc -> READ AFTER MAKING CODE CHANGES WHICH HAVE PASSED THE RULES to learn how to commit and push changes

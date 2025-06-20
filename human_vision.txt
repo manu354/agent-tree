@@ -1,0 +1,39 @@
+first make sure you understand this system, the goal and vision. Then      │
+│ please make sure agent_tree_simple follows this general idea. (the system    │
+│ has evolved since writing this prompt and may already satisfy the            │
+│ requirements):█
+
+
+Currently the check_complexity approach is quite bad. We just want this    │
+  to return simple / complex. If the problem is complex we want .            │
+                                                                             │
+  actually no what we want is even simpler:                                  │
+  we want prompt to want it breaks into subtasks specify whether that        │
+  subtask will be simple or complex. If it is "simple" then the child        │
+  process that we spawn has "simple" mode on, i.e. it is a leaf node which   │
+  can not recurse.                                                           │
+                                                                             │
+  STEPS to PLAN & EXECUTE CHILDREN: Otherwise we tell the prompt to identify how this problem can break into sub problems, and    │
+  in what order they would need to run, what context they need from the      │
+  parent & ancestor hierarchy, any knowledge of sibling tasks or             │
+  depenedencies.  etc. i.e. all context that would be useful for child claude process without bloating the context with any irrelvant information                                                           │
+        then for each of these tasks we run our recursive tree agent on it again.                                                                     │
+                                                                             │
+  This means the n=0 case (always recurse) is different to the default case  │
+  (recursive / dynamically choose), different to leaf case (always           │
+  directly solve, no recursion).                                             │
+                                                                             │
+  However it may actually be better for each case to be the same, always     │
+  the recursive case. This lowers complexity. I.e. the n=0 case can also     │
+  itself be a simple problem. This would mean we would then need to change 
+the prompt to first always check complexity, then if simple-> just call claude 
+else -> call claude to break into subchunks. Then run claude on each subchunk. 
+but this is less efficient performance wise!
+
+The most performant way is the previous way that has different cases for start and leaf nodes.
+
+- check complexity with one LLM api call (via zen server http request)
+- if simple just run claude
+- if complex run claude in plan mode where it does:   STEPS to PLAN & EXECUTE CHILDREN (mentioned before)
+    and output list of these subtasks
+END OLD PROMPT
