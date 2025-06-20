@@ -58,11 +58,6 @@ mypy src/
    - Controls recursion depth (default: 3) and node limits
    - Handles bottom-up solution integration
 
-### External Integrations
-
-- **Primary LLM**: Claude CLI (`claude code`) - used for all solving and integration
-- **Optional Decomposition**: Gemini Flash via MCP (when available) - faster decomposition decisions
-- **Fallback**: Always uses Claude CLI if MCP/Gemini unavailable
 
 ### Key Design Patterns
 
@@ -74,9 +69,9 @@ mypy src/
 ### Important Limits
 
 - Maximum tree depth: 3 levels (configurable)
-- Maximum nodes per tree: 5 (hardcoded)
-- Claude CLI timeout: 120 seconds per call
-- Decomposition: 2-4 subtasks per node
+- Maximum nodes per tree: 5 (hardcoded during development phase)
+- Claude CLI timeout: 120 seconds per call (todo, increase to 10 minutes)
+- Decomposition: 1-4 subtasks per node
 
 ### Output Structure
 ```
@@ -88,3 +83,8 @@ tmp/agent_tree_TIMESTAMP/      # or workspace/agent_tree_TIMESTAMP/
     └── sub1/
         └── solution.txt      # Child solutions
 ```
+
+
+# RULES
+1. NEVER have more than 1 solution for the same problem. That means never have a new and old version at the saem time. Instead, evolve the system incrementally towards the desired state. Never have fallbacks. 
+2. Minimize added complexity to the system when new features are added. Try reduce the complexity by re-architecting, introducing abstractions that hide complexity and seperating concerns. 

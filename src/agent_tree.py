@@ -10,6 +10,7 @@ from typing import Optional
 
 from .context import Context
 from .agent_node import AgentNode
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -103,78 +104,109 @@ def solve_problem(problem: str, max_depth: int = 3, use_tmp: bool = True,
             # Solution is now documented in planning.md
             return solution
         
-        # Decompose the problem (returns None for leaf nodes or simple problems)
-        subtasks = node.decompose_problem(task, context, is_leaf)
-        
-        if subtasks is None:
-            # Solve directly (either leaf node or problem assessed as simple)
-            if decompose_only:
-                logger.info(f"{' ' * depth}  Creating planning.md for leaf node")
-                # Create a basic planning.md for leaf nodes during decomposition
-                planning_content = f"""# Task: {task}
-
-## Status
-This is a leaf node - will be solved directly during execution phase.
-
-## Context
-{context.to_prompt() if context else 'No parent context'}
-"""
-                (node.work_dir / "planning.md").write_text(planning_content)
-                return ""  # Return empty string during decomposition phase
-            logger.info(f"{' ' * depth}  Solving directly" + (" (leaf node)" if is_leaf else ""))
-            solution = node.solve_simple(task, context)
-            # Solution is now documented in planning.md
-            return solution
-        
-        # Complex - decompose and recurse
-        logger.info(f"{' ' * depth}  Decomposing into {len(subtasks)} subtasks")
-        
-        # During decomposition phase, create planning.md with the decomposition plan
+        # During decomposition phase, create markdown files
         if decompose_only:
-            # Create planning.md with links to subtasks
-            subtask_links = []
-            for i, (subtask_desc, is_simple) in enumerate(subtasks):
-                child_path = f"sub{i+1}"
-                leaf_marker = " (leaf)" if is_simple else ""
-                subtask_links.append(f"- [[{child_path}/planning|{subtask_desc}]]{leaf_marker}")
+            # Determine parent path for markdown files relative to workspace
+            parent_path = str(node_dir.relative_to(workspace))
             
-            planning_content = f"""# Task: {task}
+            # Create markdown files for this problem
+            subproblem_files = node.decompose_to_markdown(task, context, parent_path)
+            
+            # If no subproblem files were created, this is a simple problem
+            if not subproblem_files:
+                logger.info(f"{' ' * depth}  No decomposition - simple problem")
+                # Create a simple problem markdown file
+                problem_name = node._generate_problem_name(task)
+                problem_file = node_dir / f"{problem_name}.md"
+                content = f"""# {task}
 
-## Decomposition Plan
-{chr(10).join(subtask_links)}
+## Type
+simple
 
-## Context
-{context.to_prompt() if context else 'No parent context'}
+## Problem
+{task}
+
+## Possible Solution
+This will be solved directly during execution.
+
+## Notes
+Leaf node - no further decomposition needed.
 """
-            (node.work_dir / "planning.md").write_text(planning_content)
-        
-        # Extract just task descriptions for sibling context
-        sibling_task_descriptions = [task_desc for task_desc, _ in subtasks]
-        
-        # Create context for children
-        child_context = Context(
-            root_problem=context.root_problem if context else problem,
-            parent_task=task,
-            parent_approach="",  # We removed approach from decompose_problem
-            sibling_tasks=sibling_task_descriptions
-        )
-        
-        solutions = []
-        for i, (subtask_desc, is_simple) in enumerate(subtasks):
-            child_path = f"{node_path}/sub{i+1}"
-            solution = solve_recursive(subtask_desc, child_path, child_context, 
-                                     depth + 1, is_leaf=is_simple, decompose_only=decompose_only)
-            solutions.append((subtask_desc, solution))
-        
-        # If decompose_only, we're done after creating all planning.md files
-        if decompose_only:
-            logger.info(f"{' ' * depth}  Decomposition complete for {node_path}")
+                problem_file.write_text(content)
+                return ""
+            
+            # Process each subproblem file
+            logger.info(f"{' ' * depth}  Created {len(subproblem_files)} subproblems")
+            
+            # Read subproblems and recursively decompose complex ones
+            for i, subproblem_file in enumerate(sorted(subproblem_files)):
+                if node.is_problem_complex(subproblem_file):
+                    # Read problem description from markdown
+                    with open(subproblem_file, 'r') as f:
+                        content = f.read()
+                    
+                    # Extract problem description (between ## Problem and next ##)
+                    problem_match = re.search(r'## Problem\s*\n([^#]+)', content)
+                    if problem_match:
+                        problem_desc = problem_match.group(1).strip()
+                    else:
+                        # Fallback to title
+                        title_match = re.search(r'# ([^\n]+)', content)
+                        problem_desc = title_match.group(1).strip() if title_match else "Unknown problem"
+                    
+                    # Recurse on complex problems
+                    subproblem_name = Path(subproblem_file).stem
+                    child_path = f"{node_path}/{subproblem_name}"
+                    child_context = Context(
+                        root_problem=context.root_problem if context else problem,
+                        parent_task=task,
+                        parent_approach="",
+                        sibling_tasks=[]
+                    )
+                    solve_recursive(problem_desc, child_path, child_context, 
+                                  depth + 1, is_leaf=False, decompose_only=True)
+            
             return ""
         
-        # Integrate solutions with context
+        # Execution phase - solve simple problem or integrate solutions
+        # Check if this is a leaf directory (no subdirectories with markdown files)
+        subdirs = [d for d in node_dir.iterdir() if d.is_dir() and any(d.glob("*.md"))]
+        
+        if not subdirs:
+            # Leaf node - solve directly
+            logger.info(f"{' ' * depth}  Solving directly (leaf node)")
+            solution = node.solve_simple(task, context)
+            return solution
+        
+        # Non-leaf node - solutions should already exist from bottom-up execution
+        # Read solutions from subdirectories
+        solutions = []
+        for subdir in sorted(subdirs):
+            # Find the main problem file in the subdirectory
+            md_files = list(subdir.glob("*.md"))
+            if md_files:
+                # Read the problem description
+                with open(md_files[0], 'r') as f:
+                    content = f.read()
+                    title_match = re.search(r'# ([^\n]+)', content)
+                    subtask_desc = title_match.group(1).strip() if title_match else "Unknown subtask"
+                
+                # Read the solution if it exists
+                solution_file = subdir / "solution.md"
+                if solution_file.exists():
+                    solution = solution_file.read_text()
+                else:
+                    solution = "(No solution found)"
+                
+                solutions.append((subtask_desc, solution))
+        
+        # Integrate solutions
         logger.info(f"{' ' * depth}  Integrating {len(solutions)} solutions")
         integrated = node.integrate_solutions(task, solutions, context)
-        # Integration is now documented in planning.md
+        
+        # Save integrated solution
+        (node_dir / "solution.md").write_text(integrated)
+        
         return integrated
     
     # Phase 1: Decompose only
@@ -197,61 +229,10 @@ This is a leaf node - will be solved directly during execution phase.
         logger.info("Execution cancelled by user")
         return "Execution cancelled"
     
-    # Phase 2: Execute from filesystem
+    # Phase 2: Execute from bottom-up
     logger.info("\n=== PHASE 2: EXECUTION ===")
-    # Reset node count for execution phase
-    execution_node_count = [0]
     
-    def execute_from_filesystem(node_path: str, depth: int = 0) -> str:
-        """Execute tasks from planning.md files in the filesystem"""
-        nonlocal execution_node_count
-        execution_node_count[0] += 1
-        
-        node_dir = workspace / node_path
-        planning_file = node_dir / "planning.md"
-        
-        if not planning_file.exists():
-            logger.error(f"No planning.md found at {planning_file}")
-            return ""
-        
-        # Read planning.md to get task
-        content = planning_file.read_text()
-        task_match = re.search(r'# Task: (.+)', content)
-        if not task_match:
-            logger.error(f"No task found in {planning_file}")
-            return ""
-        
-        task = task_match.group(1)
-        logger.info(f"{' ' * depth}→ Executing {node_path}: {task[:60]}...")
-        
-        # Check if this is a leaf node (no subdirectories)
-        subdirs = [d for d in node_dir.iterdir() if d.is_dir() and d.name.startswith('sub')]
-        
-        if not subdirs:
-            # Leaf node - execute directly
-            node = AgentNode(node_path, node_dir, depth)
-            # The solve_simple will read from planning.md and execute
-            solution = node.solve_simple(task, root_context)
-            return solution
-        
-        # Non-leaf node - execute children first
-        solutions = []
-        for subdir in sorted(subdirs):
-            child_path = f"{node_path}/{subdir.name}"
-            solution = execute_from_filesystem(child_path, depth + 1)
-            # Get the actual subtask from the child's planning.md
-            child_planning = (workspace / child_path / "planning.md").read_text()
-            child_task_match = re.search(r'# Task: (.+)', child_planning)
-            child_task = child_task_match.group(1) if child_task_match else "Unknown task"
-            solutions.append((child_task, solution))
-        
-        # Integrate solutions
-        logger.info(f"{' ' * depth}  Integrating {len(solutions)} solutions")
-        node = AgentNode(node_path, node_dir, depth)
-        integrated = node.integrate_solutions(task, solutions, root_context)
-        return integrated
-    
-    final_solution = execute_from_filesystem("root")
+    final_solution = execute_bottom_up(workspace)
     
     logger.info(f"\n{'='*50}")
     logger.info(f"Execution complete! Nodes processed: {execution_node_count[0]}")
@@ -279,6 +260,95 @@ See [[root/planning]] for the complete hierarchical breakdown.
     _print_tree(workspace)
     
     return final_solution
+
+
+def execute_bottom_up(workspace: Path) -> str:
+    """Execute all tasks bottom-up from markdown files"""
+    logger.info("Starting bottom-up execution")
+    
+    # Build execution order (post-order traversal)
+    execution_order = []
+    
+    def find_leaf_dirs(path: Path, depth: int = 0):
+        """Find all directories that contain .md files"""
+        # Check if this directory has any .md files
+        md_files = list(path.glob("*.md"))
+        if not md_files:
+            return
+            
+        # Check if this has subdirectories with .md files (non-leaf)
+        has_md_subdirs = False
+        for item in path.iterdir():
+            if item.is_dir() and list(item.glob("*.md")):
+                has_md_subdirs = True
+                find_leaf_dirs(item, depth + 1)
+        
+        # Add to execution order (post-order - children first)
+        execution_order.append((path, depth, not has_md_subdirs))
+    
+    # Start from root
+    find_leaf_dirs(workspace / "root")
+    
+    logger.info(f"Found {len(execution_order)} nodes to execute")
+    
+    # Execute in order
+    for node_dir, depth, is_leaf in execution_order:
+        # Find the main problem markdown file
+        md_files = [f for f in node_dir.glob("*.md") if f.name != "solution.md"]
+        if not md_files:
+            continue
+            
+        problem_file = md_files[0]
+        
+        # Read problem from markdown
+        content = problem_file.read_text()
+        title_match = re.search(r'# ([^\\n]+)', content)
+        task = title_match.group(1).strip() if title_match else "Unknown task"
+        
+        # Create context
+        context = Context(root_problem=task)  # Simplified for now
+        
+        # Get relative path for logging
+        rel_path = str(node_dir.relative_to(workspace))
+        
+        logger.info(f"{' ' * depth}→ Executing {rel_path}: {task[:60]}...")
+        
+        # Create node and execute
+        node = AgentNode(rel_path, node_dir, depth)
+        
+        if is_leaf:
+            # Solve simple problem
+            solution = node.solve_simple(task, context)
+            (node_dir / "solution.md").write_text(solution)
+        else:
+            # Integrate solutions from children
+            solutions = []
+            
+            # Read solutions from subdirectories
+            for subdir in sorted(node_dir.iterdir()):
+                if subdir.is_dir() and (subdir / "solution.md").exists():
+                    # Get task name from the problem file
+                    sub_md_files = [f for f in subdir.glob("*.md") if f.name != "solution.md"]
+                    if sub_md_files:
+                        sub_content = sub_md_files[0].read_text()
+                        sub_title_match = re.search(r'# ([^\\n]+)', sub_content)
+                        subtask = sub_title_match.group(1).strip() if sub_title_match else "Unknown subtask"
+                    else:
+                        subtask = subdir.name
+                    
+                    solution = (subdir / "solution.md").read_text()
+                    solutions.append((subtask, solution))
+            
+            # Integrate solutions
+            integrated = node.integrate_solutions(task, solutions, context)
+            (node_dir / "solution.md").write_text(integrated)
+    
+    # Return the root solution
+    root_solution_file = workspace / "root" / "solution.md"
+    if root_solution_file.exists():
+        return root_solution_file.read_text()
+    else:
+        return "No solution generated"
 
 
 def _print_tree(path: Path, prefix: str = "", is_last: bool = True):

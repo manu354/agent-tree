@@ -1,0 +1,14 @@
+Allow for parallel claude execution
+
+Some tasks are parallel, some are sequential
+
+Should we represent this with our tree?
+
+i.e. O -> a -> b -> c  
+
+currently thats o > a,b,c
+
+should we instead represent it as a > b > c
+to highlight the dependence order?
+
+Or is there a better way of representing what can be parallelized?

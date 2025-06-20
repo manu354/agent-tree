@@ -1,0 +1,52 @@
+The last commit attempted to solve 
+  @docs/human_vision_2.txt by progressing through 
+  @evolution_plan_implementation.md based off of 
+  @evolution_plan.md 
+
+  However, I think now the system is quite 
+  overcomplicated.
+
+  I want to reduce technical debt. I never want to
+   have fallback logic.
+
+It is right to to want to delete mcp and zen
+
+  the way I want the system to work is like so:
+
+  Rely more on claude prompts. When claude gets given a 
+  problem node, the prompt it gets should get claude tool 
+  to do the following:
+  - create <problem_name>.md (in a /tasks folder perhaps)
+  - create 
+  /<problem_name>/subproblems/<subproblem_name>x.md
+     - x is 1..n i.e. one subproblem markdown file in the 
+  subfolder for each subtask. It should keep an extremely 
+  concise description of the sub problem here, limit it to
+   name, problem (max 100 words), possible solution (max 
+  100 words). and notes section (max 100 words)
+     - within this .md file, it should label whether the 
+  problem is simple or complex, in some sort of structured
+   way.
+
+  Then, for each COMPLEX problem in the sub folder, we 
+  make it a claude node i.e., call claude with the 
+  contents of the .md file as input, plus some advice to 
+  first be critical of the suggested, solution. Plus 
+  include the short summary context of the parent goal, 
+  and root goal, and siblings (we already do something 
+  similar)
+
+  Once we hit a depth or count limit, or there are no more
+   complex problems to recurse on, we pause, and ask the 
+  user for input to continue or not.
+
+  While paused, the user can change the problem strucutre,
+   contents of all the markdown files, etc.
+
+   when the user writes           │
+│   continue, we know from the bottom up (perhaps we have     │
+│   appended each child made to a stack or something, and     │
+│   now pop, or any form of getting a postorder traversal,    │
+│   such that we start running claude on the child problems,  │
+│   then oncee those are finished, the parents, etc.          │
+│   bubbling back up     

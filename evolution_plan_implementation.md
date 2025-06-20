@@ -33,32 +33,32 @@
 ## Phase 1: Refactor Core Functions
 
 ### agent_tree.py
-- [ ] Add `decompose_only=False` parameter to `solve_recursive()`
-- [ ] Add early return when `decompose_only=True` after creating planning.md
+- [x] Add `decompose_only=False` parameter to `solve_recursive()`
+- [x] Add early return when `decompose_only=True` after creating planning.md
 - [ ] Create `decompose_full_tree()` wrapper that calls `solve_recursive(decompose_only=True)`
-- [ ] Update `solve_problem()` to call `decompose_full_tree()` first
-- [ ] Add pause with "Type 'continue' to execute:" prompt after decomposition
-- [ ] Call `execute_from_markdown()` after user types 'continue'
+- [x] Update `solve_problem()` to call `decompose_full_tree()` first
+- [x] Add pause with "Type 'continue' to execute:" prompt after decomposition
+- [x] Call `execute_from_markdown()` after user types 'continue'
 
 ## Phase 2: Implement Markdown Execution
 
 ### New Functions in agent_tree.py
-- [ ] Create `find_leaf_directories(workspace_dir)` - returns dirs with no subdirs
-- [ ] Create `parse_planning_md(file_path)` - extracts task and subtasks from markdown
-- [ ] Create `execute_from_markdown(workspace_dir)` - main execution function
-- [ ] Create `integrate_bottom_up(workspace_dir)` - integrates solutions from leaves to root
+- [x] Create `find_leaf_directories(workspace_dir)` - returns dirs with no subdirs (implemented inline)
+- [x] Create `parse_planning_md(file_path)` - extracts task and subtasks from markdown (simplified)
+- [x] Create `execute_from_markdown(workspace_dir)` - main execution function (as execute_from_filesystem)
+- [ ] Create `integrate_bottom_up(workspace_dir)` - integrates solutions from leaves to root (partially done)
 
 ### parse_planning_md() Implementation
-- [ ] Read file content
-- [ ] Extract task from "# Task: ..." line using regex
-- [ ] Extract subtasks from "## Subtasks:" section
-- [ ] Return dict: `{"task": "...", "subtasks": [{"task": "...", "is_simple": bool}]}`
+- [x] Read file content
+- [x] Extract task from "# Task: ..." line using regex
+- [ ] Extract subtasks from "## Subtasks:" section (not needed for current implementation)
+- [ ] Return dict: `{"task": "...", "subtasks": [{"task": "...", "is_simple": bool}]}` (simplified)
 
 ### execute_from_markdown() Implementation
-- [ ] Find all leaf directories
-- [ ] For each leaf: read planning.md, create AgentNode, call solve_simple()
+- [x] Find all leaf directories
+- [x] For each leaf: read planning.md, create AgentNode, call solve_simple()
 - [ ] Save solution.md in each leaf directory
-- [ ] Call integrate_bottom_up() to combine solutions
+- [x] Call integrate_bottom_up() to combine solutions (integrated into execute_from_filesystem)
 
 ### integrate_bottom_up() Implementation
 - [ ] Start from leaf directories
@@ -72,16 +72,16 @@
 ### Unit Tests
 - [ ] Test `parse_planning_md()` with sample markdown
 - [ ] Test `find_leaf_directories()` with mock filesystem
-- [ ] Test `decompose_only` mode creates files without executing
+- [x] Test `decompose_only` mode creates files without executing (tested manually)
 
 ### Integration Test
 - [ ] Create test that decomposes, modifies planning.md, then executes
 - [ ] Verify modified content appears in final solution
 
 ### Manual Testing
-- [ ] Run full decompose/pause/edit/continue flow
-- [ ] Test with complex multi-level problems
-- [ ] Verify all planning.md files are created before pause
+- [x] Run full decompose/pause/edit/continue flow
+- [ ] Test with complex multi-level problems (needs better decomposition prompts)
+- [x] Verify all planning.md files are created before pause
 - [ ] Verify user edits are incorporated in execution
 
 ## Phase 4: Cleanup
@@ -107,3 +107,29 @@
 - [ ] Merge `agent_tree_simple.py` and other variants into single `agent_tree.py`
 - [ ] Remove duplicate solve_problem implementations
 - [ ] Single main() function with no branching logic
+
+## Phase 6: Next Priority Tasks
+
+### Fix Decomposition Logic
+- [ ] Adjust decomposition prompt to encourage breaking down multi-component tasks
+- [ ] Add examples in prompt of what should be decomposed vs solved directly
+- [ ] Consider lowering the threshold for what's considered "complex"
+- [ ] Test with problems that have clear sub-components
+
+### Persist Solutions to Filesystem
+- [ ] Modify `solve_simple()` to save solution to solution.md
+- [ ] Modify `integrate_solutions()` to save integrated solution to solution.md
+- [ ] Update `execute_from_filesystem()` to read solution.md files
+- [ ] Ensure solution.md files are created in correct directories
+
+### Test Edge Cases
+- [ ] Test with problems that hit the 5-node limit
+- [ ] Test with very deep recursion (max_depth)
+- [ ] Test with problems that mix simple and complex subtasks
+- [ ] Test error handling when planning.md is missing or malformed
+
+### Clean Up Technical Debt
+- [ ] Remove `_call_claude_for_decomposition()` fallback - use only one path
+- [ ] Remove MCP client imports and HAS_MCP_CLIENT checks
+- [ ] Simplify Context class to only essential fields
+- [ ] Remove unused parameters like `is_leaf` where it can be determined from filesystem
