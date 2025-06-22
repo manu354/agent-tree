@@ -30,6 +30,15 @@ Each subproblem file MUST follow this exact format:
 ## Type
 [simple or complex]
 
+## Summary
+[1-2 sentence concise summary of problem and approach - MAX 30 WORDS]
+
+## Depends On
+[List other subproblems this depends on, or write "none"]
+- subproblem_name1 (if it must complete first)
+- subproblem_name2 (if it must complete first)
+Or just write: none
+
 ## Problem
 [Description - MAX 100 WORDS]
 
@@ -41,6 +50,15 @@ Each subproblem file MUST follow this exact format:
 
 Label as "simple" if it's a single-step task that can be solved directly.
 Label as "complex" if it needs further decomposition.
+
+For "Depends On": List other tasks that MUST complete before this one.
+- Use when one task needs the output or side effects of another
+- Use "none" if this task can run independently
+- Example: "implement_feature" might depend on "design_api"
+- You can reference any task from the tree structure shown above
+- Use the exact task names as they appear in the tree
+- For siblings, just use the task name (e.g., "design_api")
+- For non-siblings, use the path (e.g., "analyze_system/review_architecture")
 
 Be critical of your decomposition - ensure you're solving the real problem and breaking it down meaningfully.
 

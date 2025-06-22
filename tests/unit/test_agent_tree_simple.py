@@ -225,16 +225,22 @@ class TestSolveProblem(unittest.TestCase):
         self.original_cwd = Path.cwd()
         self.temp_dir = Path(tempfile.mkdtemp())
         # Change to temp directory to avoid cluttering the real workspace
-        import os
-
         os.chdir(self.temp_dir)
 
     def tearDown(self):
         """Clean up test fixtures"""
-        import os
-
         os.chdir(self.original_cwd)
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+        # Also clean up any tmp directories that may have been created in the project root
+        tmp_dir = Path(self.original_cwd) / "tmp"
+        if tmp_dir.exists() and tmp_dir.is_dir():
+            # Only remove agent_tree_* directories to avoid deleting other tmp files
+            for agent_tree_dir in tmp_dir.glob("agent_tree_*"):
+                if agent_tree_dir.is_dir():
+                    shutil.rmtree(agent_tree_dir, ignore_errors=True)
+            # If tmp dir is now empty, remove it
+            if not any(tmp_dir.iterdir()):
+                tmp_dir.rmdir()
 
     @patch("builtins.input", return_value="")  # Mock pressing Enter to continue
     @patch.object(ClaudeClient, "run_prompt")
@@ -428,15 +434,21 @@ class TestIntegration(unittest.TestCase):
     def setUp(self):
         self.original_cwd = Path.cwd()
         self.temp_dir = Path(tempfile.mkdtemp())
-        import os
-
         os.chdir(self.temp_dir)
 
     def tearDown(self):
-        import os
-
         os.chdir(self.original_cwd)
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+        # Also clean up any tmp directories that may have been created in the project root
+        tmp_dir = Path(self.original_cwd) / "tmp"
+        if tmp_dir.exists() and tmp_dir.is_dir():
+            # Only remove agent_tree_* directories to avoid deleting other tmp files
+            for agent_tree_dir in tmp_dir.glob("agent_tree_*"):
+                if agent_tree_dir.is_dir():
+                    shutil.rmtree(agent_tree_dir, ignore_errors=True)
+            # If tmp dir is now empty, remove it
+            if not any(tmp_dir.iterdir()):
+                tmp_dir.rmdir()
 
     @patch("builtins.input", return_value="")
     @patch.object(ClaudeClient, "run_prompt")

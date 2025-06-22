@@ -1,0 +1,1 @@
+python agent_tree.py "Perform deep exploration of human_vision_4.txt (parallel execution of agent-tree)  and various ways to solve it, wheether it is worth doing, other approaches, etc. "

@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .context import Context
+from .context import Context, build_tree_structure
 from .agent_node import AgentNode
 from .markdown_utils import generate_problem_name
 
@@ -86,11 +86,15 @@ def solve_problem(
 
         # Use tasks folder for all nodes
         node_dir = workspace / "tasks" / node_path
-        node = AgentNode(node_path, node_dir, depth)
-
+        
         # Increment node count
         node_count[0] += 1
         current_node_number = node_count[0]
+        
+        node = AgentNode(node_path, node_dir, depth, current_node_number)
+        
+        # Build current tree structure for context
+        tree_structure = build_tree_structure(workspace, node_path)
 
         node_type = " (LEAF)" if is_leaf else ""
         logger.info(
@@ -129,7 +133,18 @@ def solve_problem(
             parent_path = str(node_dir.relative_to(workspace / "tasks"))
 
             # Create markdown files for this problem
-            subproblem_files = node.decompose_to_markdown(task, context, parent_path)
+            # Ensure context has tree structure
+            if context and not context.tree_structure:
+                context_with_tree = Context(
+                    root_problem=context.root_problem,
+                    parent_task=context.parent_task,
+                    parent_approach=context.parent_approach,
+                    sibling_tasks=context.sibling_tasks,
+                    tree_structure=tree_structure
+                )
+                subproblem_files = node.decompose_to_markdown(task, context_with_tree, parent_path)
+            else:
+                subproblem_files = node.decompose_to_markdown(task, context, parent_path)
 
             # If no subproblem files were created, this is a simple problem
             if not subproblem_files:
@@ -141,6 +156,9 @@ def solve_problem(
 
 ## Type
 simple
+
+## Summary
+Directly solve this leaf task without further decomposition.
 
 ## Problem
 {task}
@@ -168,6 +186,11 @@ Leaf node - no further decomposition needed.
 
             # Read subproblems and recursively decompose complex ones
             for i, subproblem_file in enumerate(sorted(subproblem_files)):
+                # Check node limit before processing each subproblem
+                if node_count[0] >= 5:
+                    logger.info(f"{' ' * depth}  Node limit (5) reached, skipping remaining subproblems")
+                    break
+                    
                 if node.is_problem_complex(subproblem_file):
                     # Read problem description from markdown
                     with open(subproblem_file, "r") as f:
@@ -191,11 +214,14 @@ Leaf node - no further decomposition needed.
                     # Recurse on complex problems
                     subproblem_name = Path(subproblem_file).stem
                     child_path = f"{node_path}/{subproblem_name}"
+                    # Build tree structure for child context
+                    child_tree_structure = build_tree_structure(workspace, child_path)
                     child_context = Context(
                         root_problem=context.root_problem if context else problem,
                         parent_task=task,
                         parent_approach="",
                         sibling_tasks=sibling_tasks,
+                        tree_structure=child_tree_structure,
                     )
                     solve_recursive(
                         problem_desc,
@@ -254,7 +280,7 @@ Leaf node - no further decomposition needed.
         return integrated
 
     # Phase 1: Decompose only
-    root_context = Context(root_problem=problem)
+    root_context = Context(root_problem=problem, tree_structure="")
     logger.info("\n=== PHASE 1: DECOMPOSITION ===")
     solve_recursive(problem, "root", root_context, decompose_only=True)
 
@@ -351,16 +377,17 @@ def execute_bottom_up(workspace: Path) -> str:
         title_match = re.search(r"# ([^\\n]+)", content)
         task = title_match.group(1).strip() if title_match else "Unknown task"
 
-        # Create context
-        context = Context(root_problem=task)  # Simplified for now
-
         # Get relative path for logging
         rel_path = str(node_dir.relative_to(workspace / "tasks"))
+        
+        # Create context with tree structure
+        tree_structure = build_tree_structure(workspace, rel_path)
+        context = Context(root_problem=task, tree_structure=tree_structure)
 
         logger.info(f"{' ' * depth}→ Executing {rel_path}: {task[:60]}...")
 
         # Create node and execute
-        node = AgentNode(rel_path, node_dir, depth)
+        node = AgentNode(rel_path, node_dir, depth, 0)  # node_number not tracked in execution phase
 
         if is_leaf:
             # Solve simple problem
@@ -408,7 +435,9 @@ def _print_tree(path: Path, prefix: str = "", is_last: bool = True):
     if path.name.startswith("."):
         return
 
-    print(prefix + path.name + "/")
+    # Add / only for directories
+    suffix = "/" if path.is_dir() else ""
+    print(prefix + path.name + suffix)
 
     if path.is_dir():
         children = sorted([p for p in path.iterdir() if not p.name.startswith(".")])

@@ -25,12 +25,13 @@ logger = logging.getLogger(__name__)
 class AgentNode:
     """Minimal agent node using claude CLI"""
 
-    def __init__(self, name: str, work_dir: Path, depth: int = 0):
+    def __init__(self, name: str, work_dir: Path, depth: int = 0, node_number: int = 0):
         self.name = name
         self.work_dir = work_dir
         self.depth = depth
         self.work_dir.mkdir(parents=True, exist_ok=True)
-        self.claude = ClaudeClient(work_dir, name, depth)
+        self.claude = ClaudeClient(work_dir, name, depth, node_number)
+
 
     def decompose_to_markdown(
         self, problem: str, context: Optional[Context] = None, parent_path: str = "."
