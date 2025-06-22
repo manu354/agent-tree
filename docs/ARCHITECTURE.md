@@ -8,7 +8,8 @@ The Agent Tree system implements hierarchical problem decomposition using a tree
 
 ### 1. Context Management (`src/context.py`)
 - **Purpose**: Propagate information down the tree
-- **Contents**: Root goal, parent task, sibling tasks
+- **Contents**: Root goal, parent task, sibling tasks, tree structure
+- **Tree Visualization**: Shows complete problem hierarchy with "YOU ARE HERE" marker
 - **Flow**: Parent → Children (unidirectional)
 
 ### 2. Agent Nodes (`src/agent_node.py`)
@@ -18,6 +19,7 @@ The Agent Tree system implements hierarchical problem decomposition using a tree
 
 ### 3. Tree Orchestration (`src/agent_tree.py`)
 - **Recursion Control**: Depth and node limits
+- **Node Tracking**: Real-time progress display (X/5)
 - **Workspace Management**: Organized output structure
 - **Solution Flow**: Bottom-up integration
 
@@ -63,6 +65,8 @@ Root Problem
 Parent Task + Approach
     ↓
 Sibling Awareness
+    ↓
+Tree Structure Visualization
 ```
 
 ### 2. Upward (Solutions)
@@ -89,9 +93,21 @@ Final Solution
 ## Limits & Constraints
 
 1. **Depth Limit**: Max 3 levels (configurable)
-2. **Node Limit**: Max 5 nodes per tree
+2. **Node Limit**: Max 5 nodes per tree (tracked in real-time)
 3. **Timeout**: 2 minutes per Claude call
-4. **Context Size**: Full ancestor chain
+4. **Context Size**: Full ancestor chain + tree structure
+
+## Node Tracking System
+
+The system displays real-time progress as nodes are created:
+
+1. **Node Counter**: Maintained at tree level
+2. **Display Format**: "🚀 Executing Claude on complex problem X/5..."
+3. **Implementation**:
+   - Each `AgentNode` receives a `node_number` parameter
+   - `ClaudeClient` displays the count during execution
+   - Counter increments before node creation
+4. **Visibility**: Users see progress toward 5-node limit
 
 ## Error Handling
 
@@ -110,10 +126,17 @@ Each execution creates:
 ```
 workspace/
 └── agent_tree_TIMESTAMP/
-    ├── problem.txt         # Original input
-    ├── final_solution.txt  # Integrated result
-    └── root/
-        ├── solution.txt    # Root's work
-        └── sub1/
-            └── solution.txt
+    ├── planning.md         # Final integrated solution
+    └── tasks/
+        └── root/
+            ├── root_problem.md  # Root problem description
+            ├── solution.md      # Root's work
+            └── subproblems/
+                ├── sub1.md      # Subproblem descriptions
+                └── sub2.md
 ```
+
+During execution, users see:
+- Tree structure visualization after decomposition
+- Real-time node count (X/5) as problems are processed
+- Clear logging of which node is being executed
