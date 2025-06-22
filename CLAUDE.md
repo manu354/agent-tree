@@ -9,13 +9,26 @@ Agent Tree Simple is a hierarchical problem-solving system that uses Claude CLI 
 ## Key Commands
 
 ### Running Tests
+
+The test suite is organized into two categories:
+- **Unit tests** (`tests/unit/`): Test individual components with mocked dependencies
+- **Live system tests** (`tests/live_system/`): Run the full agent tree system with real Claude CLI
+
 ```bash
-# Run all tests
-python -m pytest tests/ -v
+# Run unit tests only (default)
+python -m pytest -v
 
-# Run specific test file
-python -m pytest tests/test_agent_tree_simple.py -v
+# Run specific unit test file
+python -m pytest tests/unit/test_agent_tree_simple.py -v
 
+# Run ALL tests including live system tests
+python -m pytest -c pytest-all.ini -v
+
+# Run only live system tests
+python -m pytest tests/live_system/ -v -m live_system
+
+# Skip slow tests
+python -m pytest -v -m "not slow"
 ```
 
 ### Running the System
@@ -88,3 +101,4 @@ tmp/agent_tree_TIMESTAMP/      # or workspace/agent_tree_TIMESTAMP/
 # RULES
 1. NEVER have more than 1 solution for the same problem. That means never have a new and old version at the saem time. Instead, evolve the system incrementally towards the desired state. Never have fallbacks. 
 2. Minimize added complexity to the system when new features are added. Try reduce the complexity by re-architecting, introducing abstractions that hide complexity and seperating concerns. 
+3. Add high quality unit tests for any non-trivial changes. These will undergo mutation testing so make sure they are actually testing the method well. Make sure they pass.

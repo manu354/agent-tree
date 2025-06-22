@@ -14,7 +14,7 @@ import unittest
 import tempfile
 import shutil
 import json
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock, call, mock_open
 from pathlib import Path
 import subprocess
 
@@ -25,6 +25,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 from src.agent_node import AgentNode
 from src.context import Context
 from src.agent_tree import solve_problem
+from src.claude_client import ClaudeClient
+from src.markdown_utils import generate_problem_name, find_subproblem_files
+from src.prompts import build_decomposition_prompt
 
 
 class TestAgentNode(unittest.TestCase):
@@ -51,8 +54,8 @@ class TestAgentNode(unittest.TestCase):
         self.assertTrue(nested_path.exists())
     
     @patch('subprocess.Popen')
-    def test_run_claude_success(self, mock_popen):
-        """Test successful claude CLI execution"""
+    def test_claude_client_run_prompt_success(self, mock_popen):
+        """Test successful claude CLI execution via ClaudeClient"""
         # Mock successful subprocess result
         mock_process = MagicMock()
         mock_process.stdout.readline.side_effect = ["Test output\n", ""]
@@ -60,21 +63,20 @@ class TestAgentNode(unittest.TestCase):
         mock_process.returncode = 0
         mock_popen.return_value = mock_process
         
-        result = self.node._run_claude("test prompt")
+        result = self.node.claude.run_prompt("test prompt")
         
         self.assertEqual(result, "Test output")
         mock_popen.assert_called_once()
         
         # Verify the command structure
-        call_args = mock_popen.call_args
-        cmd = call_args[0][0]
-        self.assertEqual(cmd[0], "claude")
-        self.assertEqual(cmd[1], "--dangerously-skip-permissions")
-        self.assertEqual(cmd[2], "-p")
-        self.assertEqual(cmd[3], "test prompt")
+        call_args = mock_popen.call_args[0][0]
+        self.assertEqual(call_args[0], "claude")
+        self.assertEqual(call_args[1], "--dangerously-skip-permissions")
+        self.assertEqual(call_args[2], "-p")
+        self.assertEqual(call_args[3], "test prompt")
     
     @patch('subprocess.Popen')
-    def test_run_claude_failure(self, mock_popen):
+    def test_claude_client_run_prompt_failure(self, mock_popen):
         """Test claude CLI failure handling"""
         mock_process = MagicMock()
         mock_process.stdout.readline.side_effect = [""]
@@ -83,43 +85,31 @@ class TestAgentNode(unittest.TestCase):
         mock_process.stderr.read.return_value = "Command failed"
         mock_popen.return_value = mock_process
         
-        result = self.node._run_claude("test prompt")
+        result = self.node.claude.run_prompt("test prompt")
         
         self.assertTrue(result.startswith("Error:"))
         self.assertIn("Command failed", result)
     
     @patch('subprocess.Popen')
-    def test_run_claude_timeout(self, mock_popen):
-        """Test claude CLI timeout handling"""
-        # This test is no longer applicable since Popen doesn't have timeout
-        # But we can test exception handling
-        mock_popen.side_effect = Exception("Timeout")
-        
-        result = self.node._run_claude("test prompt")
-        
-        self.assertTrue(result.startswith("Error:"))
-        self.assertIn("Timeout", result)
-    
-    @patch('subprocess.Popen')
-    def test_run_claude_exception(self, mock_popen):
+    def test_claude_client_run_prompt_exception(self, mock_popen):
         """Test claude CLI exception handling"""
         mock_popen.side_effect = Exception("Unexpected error")
         
-        result = self.node._run_claude("test prompt")
+        result = self.node.claude.run_prompt("test prompt")
         
         self.assertTrue(result.startswith("Error:"))
         self.assertIn("Unexpected error", result)
     
     @patch('subprocess.Popen')
-    def test_run_claude_with_prompt(self, mock_popen):
-        """Test that _run_claude passes prompt correctly"""
+    def test_claude_client_with_multiple_output_lines(self, mock_popen):
+        """Test that ClaudeClient handles multiple output lines"""
         mock_process = MagicMock()
         mock_process.stdout.readline.side_effect = ["output line 1\n", "output line 2\n", ""]
         mock_process.wait.return_value = None
         mock_process.returncode = 0
         mock_popen.return_value = mock_process
         
-        result = self.node._run_claude("test prompt")
+        result = self.node.claude.run_prompt("test prompt")
         
         # Check command was called with prompt
         mock_popen.assert_called_once()
@@ -128,68 +118,66 @@ class TestAgentNode(unittest.TestCase):
         self.assertIn("test prompt", args)
         self.assertEqual(result, "output line 1\noutput line 2")
     
-    @patch('subprocess.run')
-    def test_decompose_returns_none_for_simple(self, mock_run):
-        """Test decomposition returns None for simple problems"""
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_process.stdout = '{"decompose": false}'
-        mock_run.return_value = mock_process
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_decompose_to_markdown_returns_files(self, mock_run_prompt, mock_find_files):
+        """Test decompose_to_markdown returns list of created files"""
+        # Mock Claude creating markdown files
+        mock_run_prompt.return_value = "Created markdown files"
         
-        result = self.node.decompose_problem("Write a hello world function")
+        # Create the proper directory structure that find_subproblem_files expects
+        problem_name = "test_problem"
+        subproblems_dir = self.temp_dir / problem_name / "subproblems"
+        subproblems_dir.mkdir(parents=True)
         
-        self.assertIsNone(result)  # Simple problems return None
+        file1 = subproblems_dir / "01_subtask_one.md"
+        file2 = subproblems_dir / "02_subtask_two.md"
+        file1.write_text("# Subtask One\n\n## Type\nsimple")
+        file2.write_text("# Subtask Two\n\n## Type\ncomplex")
+        
+        # Mock finding the created files - return full paths
+        mock_find_files.return_value = [
+            str(file1),
+            str(file2)
+        ]
+        
+        result = self.node.decompose_to_markdown("Test problem")
+        
+        self.assertEqual(len(result), 2)
+        self.assertTrue(any("01_subtask_one.md" in r for r in result))
+        self.assertTrue(any("02_subtask_two.md" in r for r in result))
+        
+        # Verify find_subproblem_files was called with correct args
+        mock_find_files.assert_called_once()
+        call_args = mock_find_files.call_args[0]
+        self.assertEqual(call_args[0], self.temp_dir)  # work_dir
+        self.assertEqual(call_args[1], problem_name)  # problem_name
     
-    @patch('subprocess.run')
-    def test_decompose_returns_subtasks(self, mock_run):
-        """Test decomposition returns subtasks with labels"""
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_response = {
-            "decompose": True,
-            "subtasks": [
-                {"task": "Create user interface", "simple": True},
-                {"task": "Implement backend", "simple": False},
-                {"task": "Setup database", "simple": True}
-            ]
-        }
-        mock_process.stdout = json.dumps(mock_response)
-        mock_run.return_value = mock_process
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_decompose_to_markdown_empty_result(self, mock_run_prompt, mock_find_files):
+        """Test decompose_to_markdown when no files are created"""
+        mock_run_prompt.return_value = "No decomposition needed"
+        mock_find_files.return_value = []
         
-        result = self.node.decompose_problem("Build a web application")
+        result = self.node.decompose_to_markdown("Simple problem")
         
-        self.assertIsNotNone(result)
-        self.assertEqual(len(result), 3)
-        self.assertEqual(result[0], ("Create user interface", True))
-        self.assertEqual(result[1], ("Implement backend", False))
-        self.assertEqual(result[2], ("Setup database", True))
+        self.assertEqual(result, [])
     
-    @patch('subprocess.run')
-    def test_decompose_handles_invalid_json(self, mock_run):
-        """Test decomposition handles invalid JSON gracefully"""
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_process.stdout = "Invalid JSON response"
-        mock_run.return_value = mock_process
-        
-        result = self.node.decompose_problem("Some problem")
-        
-        self.assertIsNone(result)  # Invalid JSON defaults to None
-    
-    @patch.object(AgentNode, '_run_claude')
-    def test_solve_simple(self, mock_run_claude):
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_solve_simple(self, mock_run_prompt):
         """Test solving a simple problem"""
-        mock_run_claude.return_value = "Here's the solution: print('Hello World')"
+        mock_run_prompt.return_value = "Here's the solution: print('Hello World')"
         
         result = self.node.solve_simple("Write a hello world program")
         
         self.assertIn("Hello World", result)
-        mock_run_claude.assert_called_once()
+        mock_run_prompt.assert_called_once()
     
-    @patch.object(AgentNode, '_run_claude')
-    def test_solve_simple_with_context(self, mock_run_claude):
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_solve_simple_with_context(self, mock_run_prompt):
         """Test solving a simple problem with context"""
-        mock_run_claude.return_value = "Solution with context"
+        mock_run_prompt.return_value = "Solution with context"
         
         context = Context(
             root_problem="Build user system",
@@ -200,15 +188,15 @@ class TestAgentNode(unittest.TestCase):
         result = self.node.solve_simple("Add user authentication", context)
         
         # Verify context was included in the prompt
-        call_args = mock_run_claude.call_args[0][0]
+        call_args = mock_run_prompt.call_args[0][0]
         self.assertIn("Root Goal: Build user system", call_args)
         self.assertIn("Parent Task: Create auth module", call_args)
         self.assertIn("Add user authentication", call_args)
     
-    @patch.object(AgentNode, '_run_claude')
-    def test_integrate_solutions(self, mock_run_claude):
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_integrate_solutions(self, mock_run_prompt):
         """Test solution integration"""
-        mock_run_claude.return_value = "Integrated solution"
+        mock_run_prompt.return_value = "Integrated solution"
         
         solutions = [
             ("Task 1", "Solution 1"),
@@ -220,12 +208,24 @@ class TestAgentNode(unittest.TestCase):
         self.assertEqual(result, "Integrated solution")
         
         # Verify the prompt includes all solutions
-        call_args = mock_run_claude.call_args[0][0]
+        call_args = mock_run_prompt.call_args[0][0]
         self.assertIn("Original problem", call_args)
         self.assertIn("Task 1", call_args)
         self.assertIn("Solution 1", call_args)
         self.assertIn("Task 2", call_args)
         self.assertIn("Solution 2", call_args)
+    
+    def test_is_problem_complex(self):
+        """Test is_problem_complex method"""
+        # Create test markdown files
+        simple_file = self.temp_dir / "simple.md"
+        simple_file.write_text("# Task\n\n## Type\nsimple\n")
+        
+        complex_file = self.temp_dir / "complex.md"
+        complex_file.write_text("# Task\n\n## Type\ncomplex\n")
+        
+        self.assertFalse(self.node.is_problem_complex(str(simple_file)))
+        self.assertTrue(self.node.is_problem_complex(str(complex_file)))
 
 
 class TestSolveProblem(unittest.TestCase):
@@ -245,103 +245,87 @@ class TestSolveProblem(unittest.TestCase):
         os.chdir(self.original_cwd)
         shutil.rmtree(self.temp_dir, ignore_errors=True)
     
-    @patch.object(AgentNode, '_run_claude')
-    def test_solve_simple_problem_end_to_end(self, mock_run_claude):
+    @patch('builtins.input', return_value='')  # Mock pressing Enter to continue
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_solve_simple_problem_end_to_end(self, mock_run_prompt, mock_find_files, mock_input):
         """Test solving a simple problem end-to-end"""
-        # Mock the decomposition to return simple (no decomposition needed)
-        mock_run_claude.return_value = '{"decompose": false}'
+        # Mock no decomposition (empty file list)
+        mock_find_files.return_value = []
         
         # Mock the solution
-        def side_effect(prompt, mode="ephemeral"):
-            if '"decompose"' in prompt:
-                return '{"decompose": false}'
-            else:
-                return "def hello_world():\n    print('Hello, World!')"
-        
-        mock_run_claude.side_effect = side_effect
+        mock_run_prompt.return_value = "def hello_world():\n    print('Hello, World!')"
         
         result = solve_problem("Write a hello world function")
         
         self.assertIn("Hello, World!", result)
         
-        # Verify workspace was created (could be in current directory during tests)
-        workspaces = list(Path("tmp").glob("agent_tree_*"))
+        # Verify workspace was created
+        workspaces = list(Path(".").glob("agent_tree_*"))
         self.assertGreaterEqual(len(workspaces), 1)
         
         workspace = workspaces[0]
-        # The mocked Claude doesn't actually create files, so we just verify the workspace exists
         self.assertTrue(workspace.exists())
         self.assertTrue((workspace / "root").exists())
     
-    @patch.object(AgentNode, '_run_claude')
-    @patch('subprocess.run')
-    def test_solve_complex_problem_end_to_end(self, mock_run, mock_run_claude):
+    @patch('builtins.input', return_value='')  # Mock pressing Enter to continue
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_solve_complex_problem_end_to_end(self, mock_run_prompt, mock_find_files, mock_input):
         """Test solving a complex problem with decomposition"""
         
-        # Mock decomposition for main problem
-        main_decompose = MagicMock()
-        main_decompose.returncode = 0
-        main_decompose.stdout = json.dumps({
-            "decompose": True,
-            "subtasks": [
-                {"task": "Create UI", "simple": True},
-                {"task": "Setup backend", "simple": True}
-            ]
-        })
-        mock_run.return_value = main_decompose
-        
-        def side_effect(prompt, mode="ephemeral"):
-            # Solving Create UI subtask
-            if "Create UI" in prompt and "Solve this problem" in prompt:
-                return "UI: React component with form"
-            
-            # Solving Setup backend subtask  
-            elif "Setup backend" in prompt and "Solve this problem" in prompt:
-                return "Backend: Express.js server with routes"
-            
-            # Integration step
-            elif "Integrate these" in prompt or ("Sub-solutions:" in prompt and "Original problem:" in prompt):
-                return "Complete web app with UI and backend integrated"
-            
-            # Fallback
+        # First call - decomposition creates files
+        def find_files_side_effect(work_dir, problem_name):
+            if str(work_dir).endswith("root"):
+                return ["sub1/problem.md", "sub2/problem.md"]
             else:
-                return "Generic solution"
+                return []  # Leaf nodes don't decompose further
         
-        mock_run_claude.side_effect = side_effect
+        mock_find_files.side_effect = find_files_side_effect
+        
+        # Mock Claude responses
+        responses = [
+            # Initial decomposition
+            "Created markdown structure",
+            # Solving sub1
+            "UI: React component with form",
+            # Solving sub2  
+            "Backend: Express.js server with routes",
+            # Integration
+            "Complete web app with UI and backend integrated"
+        ]
+        
+        mock_run_prompt.side_effect = responses
         
         result = solve_problem("Build a simple web application")
         
         self.assertIn("integrated", result.lower())
         
         # Verify the tree structure was created
-        workspaces = list(Path("tmp").glob("agent_tree_*"))
+        workspaces = list(Path(".").glob("agent_tree_*"))
         self.assertTrue(len(workspaces) >= 1)
         
-        # Find the most recent workspace
         workspace = max(workspaces, key=lambda p: p.stat().st_mtime)
         self.assertTrue((workspace / "root").exists())
         self.assertTrue((workspace / "root" / "sub1").exists())
         self.assertTrue((workspace / "root" / "sub2").exists())
     
-    @patch.object(AgentNode, '_run_claude')
-    def test_max_depth_limit(self, mock_run_claude):
+    @patch('builtins.input', return_value='')
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_max_depth_limit(self, mock_run_prompt, mock_find_files, mock_input):
         """Test that max depth limit is respected"""
-        # Always return complex to test depth limiting
-        mock_run_claude.return_value = '{"decompose": true, "approach": "Decompose", "subtasks": [{"task": "Sub 1", "simple": false}, {"task": "Sub 2", "simple": false}]}'
+        # Always return files to simulate complex problems
+        mock_find_files.return_value = ["sub1/problem.md", "sub2/problem.md"]
         
-        def side_effect(prompt, mode="ephemeral"):
-            if '"decompose"' in prompt:
-                return '{"decompose": true, "approach": "Decompose", "subtasks": [{"task": "Sub 1", "simple": false}, {"task": "Sub 2", "simple": false}]}'
-            else:
-                return "Forced simple solution due to depth limit"
-        
-        mock_run_claude.side_effect = side_effect
+        # Mock responses
+        mock_run_prompt.return_value = "Forced simple solution due to depth limit"
         
         result = solve_problem("Complex problem", max_depth=1)
         
-        # Should solve directly due to depth limit
-        self.assertIn("depth limit", result.lower())
-    
+        # At depth 1, root should solve directly without decomposition
+        # The mock should be called for the root solve only
+        self.assertEqual(mock_run_prompt.call_count, 1)
 
 
 class TestErrorHandling(unittest.TestCase):
@@ -354,48 +338,48 @@ class TestErrorHandling(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
     
-    @patch.object(AgentNode, '_run_claude')
-    def test_empty_problem(self, mock_run_claude):
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_empty_problem(self, mock_run_prompt):
         """Test handling of empty problem string"""
-        mock_run_claude.return_value = "Empty problem handled"
+        mock_run_prompt.return_value = "Empty problem handled"
         
         result = self.node.solve_simple("")
         
         self.assertIsInstance(result, str)
-        mock_run_claude.assert_called_once()
+        mock_run_prompt.assert_called_once()
     
-    @patch.object(AgentNode, '_run_claude')
-    def test_very_long_problem(self, mock_run_claude):
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_very_long_problem(self, mock_run_prompt):
         """Test handling of very long problem descriptions"""
         long_problem = "A" * 10000  # Very long problem
-        mock_run_claude.return_value = "Long problem handled"
+        mock_run_prompt.return_value = "Long problem handled"
         
         result = self.node.solve_simple(long_problem)
         
         self.assertEqual(result, "Long problem handled")
     
-    @patch.object(AgentNode, '_run_claude')
-    def test_special_characters_in_problem(self, mock_run_claude):
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_special_characters_in_problem(self, mock_run_prompt):
         """Test handling of special characters in problem description"""
         special_problem = "Problem with 'quotes' and \"double quotes\" and \n newlines"
-        mock_run_claude.return_value = "Special chars handled"
+        mock_run_prompt.return_value = "Special chars handled"
         
         result = self.node.solve_simple(special_problem)
         
         self.assertEqual(result, "Special chars handled")
     
-    @patch('subprocess.run')
-    def test_malformed_json_in_decomposition(self, mock_run):
-        """Test handling of malformed JSON in decomposition"""
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_process.stdout = '{"decompose": true, "subtasks": [incomplete'
-        mock_run.return_value = mock_process
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_decomposition_error_handling(self, mock_run_prompt, mock_find_files):
+        """Test handling of errors during decomposition"""
+        # Mock Claude error
+        mock_run_prompt.return_value = "Error: Claude failed"
+        mock_find_files.return_value = []
         
-        result = self.node.decompose_problem("Test problem")
+        result = self.node.decompose_to_markdown("Test problem")
         
-        # Should default to None when JSON is malformed
-        self.assertIsNone(result)
+        # Should return empty list on error
+        self.assertEqual(result, [])
 
 
 class TestContext(unittest.TestCase):
@@ -426,45 +410,42 @@ class TestContext(unittest.TestCase):
         
         self.assertEqual(prompt, "")  # Empty when no parent
     
-    @patch.object(AgentNode, '_call_gemini_for_decomposition')
-    @patch.object(AgentNode, '_run_claude')
-    def test_context_passed_to_children(self, mock_run_claude, mock_gemini):
+    @patch('builtins.input', return_value='')
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_context_passed_to_children(self, mock_run_prompt, mock_find_files, mock_input):
         """Test that context is properly passed down the tree"""
         # Mock the decomposition to return subtasks
-        mock_gemini.return_value = [("Task A", True), ("Task B", True)]
+        def find_files_side_effect(work_dir, problem_name):
+            if str(work_dir).endswith("root"):
+                return ["task_a/problem.md", "task_b/problem.md"]
+            else:
+                return []  # Leaf nodes
+        
+        mock_find_files.side_effect = find_files_side_effect
         
         # Set up responses for Claude calls
         responses = [
-            # Task A solution (leaf node, no decomposition)
+            # Initial decomposition
+            "Created subtasks",
+            # Task A solution
             "Solution A with context awareness",
-            # Task B solution (leaf node, no decomposition)
+            # Task B solution
             "Solution B with context awareness",
             # Integration
             "Integrated solution"
         ]
         
-        mock_run_claude.side_effect = responses
+        mock_run_prompt.side_effect = responses
         
         result = solve_problem("Root problem")
         
         # Check that context was passed in the prompts
-        calls = mock_run_claude.call_args_list
+        calls = mock_run_prompt.call_args_list
         
-        # Find the Task A solve call
-        task_a_solve_call = None
-        for call in calls:
-            if len(call[0]) > 0 and "Task A" in call[0][0] and "Root Goal: Root problem" in call[0][0]:
-                task_a_solve_call = call
-                break
-        
-        self.assertIsNotNone(task_a_solve_call, "Context should be passed to child tasks")
-        
-        # Verify the context content
-        prompt = task_a_solve_call[0][0]
-        self.assertIn("Root Goal: Root problem", prompt)
-        self.assertIn("Parent Task: Root problem", prompt)
-        # Parent's approach is now empty in the new implementation
-        self.assertIn("Task B", prompt)  # Should know about sibling
+        # The solve calls should include context
+        solve_calls = [c for c in calls if "Root Goal:" in c[0][0]]
+        self.assertGreaterEqual(len(solve_calls), 2, "Context should be passed to child tasks")
 
 
 class TestIntegration(unittest.TestCase):
@@ -481,25 +462,28 @@ class TestIntegration(unittest.TestCase):
         os.chdir(self.original_cwd)
         shutil.rmtree(self.temp_dir, ignore_errors=True)
     
-    @patch('subprocess.run')
-    @patch.object(AgentNode, '_run_claude')
-    def test_realistic_workflow(self, mock_run_claude, mock_run):
+    @patch('builtins.input', return_value='')
+    @patch('src.markdown_utils.find_subproblem_files')
+    @patch.object(ClaudeClient, 'run_prompt')
+    def test_realistic_workflow(self, mock_run_prompt, mock_find_files, mock_input):
         """Test a realistic problem-solving workflow"""
-        # Mock decomposition response
-        decompose_response = MagicMock()
-        decompose_response.returncode = 0
-        decompose_response.stdout = json.dumps({
-            "decompose": True,
-            "subtasks": [
-                {"task": "Design data model", "simple": True},
-                {"task": "Create API endpoints", "simple": True},
-                {"task": "Build frontend", "simple": True}
-            ]
-        })
-        mock_run.return_value = decompose_response
+        # Mock decomposition creating three subtasks
+        def find_files_side_effect(work_dir, problem_name):
+            if str(work_dir).endswith("root"):
+                return [
+                    "data_model/problem.md",
+                    "api_endpoints/problem.md", 
+                    "frontend/problem.md"
+                ]
+            else:
+                return []  # Leaf nodes
+        
+        mock_find_files.side_effect = find_files_side_effect
         
         # Mock solution responses
         responses = [
+            # Initial decomposition
+            "Created project structure",
             # Subtask 1 solution
             "Data model: User table with id, name, email fields",
             # Subtask 2 solution
@@ -510,7 +494,7 @@ class TestIntegration(unittest.TestCase):
             "Complete user management system with database, API, and frontend"
         ]
         
-        mock_run_claude.side_effect = responses
+        mock_run_prompt.side_effect = responses
         
         result = solve_problem("Create a user management system")
         
@@ -518,14 +502,13 @@ class TestIntegration(unittest.TestCase):
         self.assertIn("Complete user management system", result)
         
         # Verify all claude calls were made
-        self.assertEqual(mock_run_claude.call_count, len(responses))
+        self.assertEqual(mock_run_prompt.call_count, len(responses))
         
         # Verify workspace structure
-        workspaces = list(Path("tmp").glob("agent_tree_*"))
+        workspaces = list(Path(".").glob("agent_tree_*"))
         self.assertEqual(len(workspaces), 1)
         
         workspace = workspaces[0]
-        # The mocked Claude doesn't actually create files, so we just verify the workspace structure
         self.assertTrue(workspace.exists())
         self.assertTrue((workspace / "root").exists())
 

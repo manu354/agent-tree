@@ -11,16 +11,16 @@ Transform the system to use markdown files as the primary interface for problem 
 5. Pause after decomposition for user editing
 6. Execute bottom-up after user continues
 
-## Phase 1: Remove Technical Debt (30 min)
+## Phase 1: Remove Technical Debt (30 min) ✅ COMPLETE
 
 ### Immediate Deletions
-- [ ] Delete `src/mcp_client.py`
-- [ ] Delete `src/zen_mode.py` 
-- [ ] Remove `_call_gemini_for_decomposition()` from `agent_node.py`
-- [ ] Remove all MCP imports and fallback logic
-- [ ] Remove all "if X fails, try Y" patterns
+- [x] Delete `src/mcp_client.py`
+- [x] Delete `src/zen_mode.py` 
+- [x] Remove `_call_gemini_for_decomposition()` from `agent_node.py`
+- [x] Remove all MCP imports and fallback logic
+- [x] Remove all "if X fails, try Y" patterns
 
-## Phase 2: Implement Markdown-First Decomposition (2 hours)
+## Phase 2: Implement Markdown-First Decomposition (2 hours) ✅ COMPLETE
 
 ### New File Structure
 ```
@@ -92,13 +92,13 @@ Use these tools to create the files:
 ```
 
 ### Update agent_tree.py decompose()
-- [ ] Change decomposition to use new prompt
-- [ ] Have Claude use Write tool to create markdown files directly (it will do this automatically, its smart)
-- [ ] Remove JSON parsing - Claude creates files instead
-- [ ] Use simplest approach to check for whether a subproblem is complex or not, search for "simple" or "complex" and whichever word appears fist is the type. If neither exist, default to simple.
-- [ ] After decomposition, return immediately (no recursion yet)
-- [ ] add good unit tests, make sure they pass
-- [ ] review solution, can we reduce complexity? 
+- [x] Change decomposition to use new prompt
+- [x] Have Claude use Write tool to create markdown files directly (it will do this automatically, its smart)
+- [x] Remove JSON parsing - Claude creates files instead
+- [x] Use simplest approach to check for whether a subproblem is complex or not, search for "simple" or "complex" and whichever word appears fist is the type. If neither exist, default to simple.
+- [x] After decomposition, return immediately (no recursion yet)
+- [x] add good unit tests, make sure they pass
+- [x] review solution, can we reduce complexity? 
 
 ## Phase 3: Implement Pause and Edit Flow (1 hour)
 

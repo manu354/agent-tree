@@ -10,6 +10,7 @@ from typing import Optional
 
 from .context import Context
 from .agent_node import AgentNode
+from .markdown_utils import generate_problem_name
 import os
 
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ def solve_problem(problem: str, max_depth: int = 3, use_tmp: bool = True,
             if decompose_only:
                 logger.info(f"{' ' * depth}  Node limit (5) reached, planning.md created")
                 # Still need to create planning.md even at node limit
-                node.decompose_problem(task, context, is_leaf=True)
+                node.decompose_to_markdown(task, context)
                 return ""
             logger.info(f"{' ' * depth}  Node limit (5) reached, solving directly")
             solution = node.solve_simple(task, context)
@@ -97,7 +98,7 @@ def solve_problem(problem: str, max_depth: int = 3, use_tmp: bool = True,
             if decompose_only:
                 logger.info(f"{' ' * depth}  Max depth reached, planning.md created")
                 # Still need to create planning.md even at max depth
-                node.decompose_problem(task, context, is_leaf=True)
+                node.decompose_to_markdown(task, context)
                 return ""
             logger.info(f"{' ' * depth}  Max depth reached, solving directly")
             solution = node.solve_simple(task, context)
@@ -116,7 +117,7 @@ def solve_problem(problem: str, max_depth: int = 3, use_tmp: bool = True,
             if not subproblem_files:
                 logger.info(f"{' ' * depth}  No decomposition - simple problem")
                 # Create a simple problem markdown file
-                problem_name = node._generate_problem_name(task)
+                problem_name = generate_problem_name(task)
                 problem_file = node_dir / f"{problem_name}.md"
                 content = f"""# {task}
 
@@ -235,7 +236,7 @@ Leaf node - no further decomposition needed.
     final_solution = execute_bottom_up(workspace)
     
     logger.info(f"\n{'='*50}")
-    logger.info(f"Execution complete! Nodes processed: {execution_node_count[0]}")
+    logger.info(f"Execution complete!")
     logger.info(f"Workspace: {workspace}")
     logger.info(f"{'='*50}\n")
     
