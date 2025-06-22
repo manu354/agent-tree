@@ -13,12 +13,17 @@ logger = logging.getLogger(__name__)
 class ClaudeClient:
     """Handles interaction with Claude CLI"""
 
-    def __init__(self, work_dir: Path, node_name: str = "unknown", depth: int = 0, node_number: int = 0):
+    def __init__(
+        self,
+        work_dir: Path,
+        node_name: str = "unknown",
+        depth: int = 0,
+        node_number: int = 0,
+    ):
         self.work_dir = work_dir
         self.node_name = node_name
         self.depth = depth
         self.node_number = node_number
-
 
     def run_prompt(self, prompt: str, mode: str = "ephemeral") -> str:
         """Run claude CLI and return output"""

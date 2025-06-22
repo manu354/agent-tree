@@ -86,13 +86,13 @@ def solve_problem(
 
         # Use tasks folder for all nodes
         node_dir = workspace / "tasks" / node_path
-        
+
         # Increment node count
         node_count[0] += 1
         current_node_number = node_count[0]
-        
+
         node = AgentNode(node_path, node_dir, depth, current_node_number)
-        
+
         # Build current tree structure for context
         tree_structure = build_tree_structure(workspace, node_path)
 
@@ -140,11 +140,15 @@ def solve_problem(
                     parent_task=context.parent_task,
                     parent_approach=context.parent_approach,
                     sibling_tasks=context.sibling_tasks,
-                    tree_structure=tree_structure
+                    tree_structure=tree_structure,
                 )
-                subproblem_files = node.decompose_to_markdown(task, context_with_tree, parent_path)
+                subproblem_files = node.decompose_to_markdown(
+                    task, context_with_tree, parent_path
+                )
             else:
-                subproblem_files = node.decompose_to_markdown(task, context, parent_path)
+                subproblem_files = node.decompose_to_markdown(
+                    task, context, parent_path
+                )
 
             # If no subproblem files were created, this is a simple problem
             if not subproblem_files:
@@ -188,9 +192,11 @@ Leaf node - no further decomposition needed.
             for i, subproblem_file in enumerate(sorted(subproblem_files)):
                 # Check node limit before processing each subproblem
                 if node_count[0] >= 5:
-                    logger.info(f"{' ' * depth}  Node limit (5) reached, skipping remaining subproblems")
+                    logger.info(
+                        f"{' ' * depth}  Node limit (5) reached, skipping remaining subproblems"
+                    )
                     break
-                    
+
                 if node.is_problem_complex(subproblem_file):
                     # Read problem description from markdown
                     with open(subproblem_file, "r") as f:
@@ -208,8 +214,6 @@ Leaf node - no further decomposition needed.
                             if title_match
                             else "Unknown problem"
                         )
-
-
 
                     # Recurse on complex problems
                     subproblem_name = Path(subproblem_file).stem
@@ -284,10 +288,10 @@ Leaf node - no further decomposition needed.
     logger.info("\n=== PHASE 1: DECOMPOSITION ===")
     solve_recursive(problem, "root", root_context, decompose_only=True)
 
-    logger.info("\n" + "="*50)
+    logger.info("\n" + "=" * 50)
     logger.info(f"Decomposition complete! Total nodes created: {node_count[0]}")
     logger.info(f"Workspace: {workspace}")
-    logger.info("="*50 + "\n")
+    logger.info("=" * 50 + "\n")
 
     # Show tree structure after decomposition
     print("\nDecomposition tree structure:")
@@ -306,10 +310,10 @@ Leaf node - no further decomposition needed.
 
     final_solution = execute_bottom_up(workspace)
 
-    logger.info("\n" + "="*50)
+    logger.info("\n" + "=" * 50)
     logger.info("Execution complete!")
     logger.info(f"Workspace: {workspace}")
-    logger.info("="*50 + "\n")
+    logger.info("=" * 50 + "\n")
 
     # Create a final planning.md at workspace root that links to the root task
     final_planning = f"""# Agent Tree Execution
@@ -379,7 +383,7 @@ def execute_bottom_up(workspace: Path) -> str:
 
         # Get relative path for logging
         rel_path = str(node_dir.relative_to(workspace / "tasks"))
-        
+
         # Create context with tree structure
         tree_structure = build_tree_structure(workspace, rel_path)
         context = Context(root_problem=task, tree_structure=tree_structure)
@@ -387,7 +391,9 @@ def execute_bottom_up(workspace: Path) -> str:
         logger.info(f"{' ' * depth}→ Executing {rel_path}: {task[:60]}...")
 
         # Create node and execute
-        node = AgentNode(rel_path, node_dir, depth, 0)  # node_number not tracked in execution phase
+        node = AgentNode(
+            rel_path, node_dir, depth, 0
+        )  # node_number not tracked in execution phase
 
         if is_leaf:
             # Solve simple problem

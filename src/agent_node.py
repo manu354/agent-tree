@@ -32,7 +32,6 @@ class AgentNode:
         self.work_dir.mkdir(parents=True, exist_ok=True)
         self.claude = ClaudeClient(work_dir, name, depth, node_number)
 
-
     def decompose_to_markdown(
         self, problem: str, context: Optional[Context] = None, parent_path: str = "."
     ) -> List[str]:

@@ -69,13 +69,12 @@ Use these tools to create the files:
 def build_solution_prompt(problem: str, context: Optional[Context]) -> str:
     """Build prompt for solving a simple problem"""
     context_prompt = context.to_prompt() if context else ""
-    
+
     return f"""{context_prompt}Solve this problem:
 {problem}
 
 Be critical and think for yourself - ensure your solution addresses the bigger picture and root goal.
 Provide a concrete solution with implementation details."""
-
 
 
 def build_integration_prompt(
@@ -95,4 +94,3 @@ Sub-solutions:
 
 Be critical - evaluate whether these solutions truly address the root problem effectively.
 Integrate these sub-solutions into a complete, cohesive solution."""
-

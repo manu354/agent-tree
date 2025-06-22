@@ -14,6 +14,7 @@ import unittest
 import tempfile
 import shutil
 import json
+import os
 from unittest.mock import patch, MagicMock, call, mock_open
 from pathlib import Path
 import subprocess

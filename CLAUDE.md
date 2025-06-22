@@ -55,21 +55,24 @@ mypy src/
 
 1. **Context System** (`src/context.py`)
    - Passes information from parent to child nodes
-   - Contains: root problem, parent task, parent approach, sibling tasks
+   - Contains: root problem, parent task, parent approach, sibling tasks, tree structure
    - Unidirectional flow (parent → children)
-   - goal is to minimze context to just what is relevant for the task at hand, maximise specificity and conciseness, minimize unnecesary or unrelated detail. Root -> parent path + knowledge of siblings is a heuristic for this.
+   - Shows visual tree structure with "YOU ARE HERE" marker for current node
+   - Goal is to minimize context to just what is relevant for the task at hand, maximize specificity and conciseness, minimize unnecessary or unrelated detail. Root -> parent path + knowledge of siblings is a heuristic for this.
 
 2. **Agent Node** (`src/agent_node.py`)
    - Handles problem decomposition decisions
    - Executes solutions for leaf nodes
    - Integrates child solutions for branch nodes
    - Uses Claude CLI via subprocess for all LLM interactions
+   - Tracks node number for progress display
 
 3. **Tree Orchestration** (`src/agent_tree.py`)
    - Entry point: `solve_problem()` function
    - Manages workspace creation and organization
    - Controls recursion depth (default: 3) and node limits
    - Handles bottom-up solution integration
+   - Tracks and displays node count (X/5) during execution
 
 
 ### Key Design Patterns
@@ -78,6 +81,7 @@ mypy src/
 2. **Context Propagation**: Children receive full context about ancestors and siblings
 3. **Workspace Organization**: Each execution creates a timestamped directory structure
 4. **Graceful Degradation**: Falls back to Claude CLI if optional components fail
+5. **Progress Tracking**: Real-time node count display shows progress toward 5-node limit
 
 ### Important Limits
 
