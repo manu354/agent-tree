@@ -1,0 +1,6 @@
+So currently we have three phase
+
+- decomposition, feedback, execution. 
+
+Let's try it on a complex voice tree problem.
+
