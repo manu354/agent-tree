@@ -4,3 +4,14 @@ So currently we have three phase
 
 Let's try it on a complex voice tree problem.
 
+
+
+
+Now, one absolutely crucial concept with this whole simplication plan is the   
+   desire to minimize complexity. The reason why we are doing this is because     
+   the current system was getting too complex and hard to reason about. We want   
+   this new system to be really clear, broken up into very clear modules which    
+   are connected logically, without leaky abstractions. First let's draw a        
+   mermaid diagram of the new system architecture and add it to our simplication  
+   plan, as well as a flow diagram, then see if there are any areas that are      
+   especially complex that we can work together on to reduce its complexity.
