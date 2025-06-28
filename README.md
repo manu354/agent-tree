@@ -14,7 +14,7 @@ A clean, context-aware implementation of recursive problem decomposition using C
 ## Usage
 
 ```bash
-python agent_tree_simple.py "Your complex problem description"
+python agent_tree.py "Your complex problem description"
 ```
 
 ## How It Works

@@ -1,0 +1,64 @@
+This agent-tree program has become unnecesssarily complicated.
+
+For now, this is all I want the system to do. No extra complexities or over-engineering, but keep things will abstracted, encapsulated, concerns separated, very readable and intuitive etc.
+
+I want it to follow this intuitive, high level pseudocode:
+
+
+main.py
+# three phase approach: agentic decomposition, human feedback (opportunity to edit all the task plans and task decomposition tree), agentic execution
+
+do this with two seperate commands:
+
+# phase 1: 
+## python agent_tree.py decompose "task description"
+decompose(input_task)
+
+# phase 2: (implicit, no code needed)
+# human can now modify
+
+# phase 3:
+## python agent_tree.py solve "path/to/root_task"
+
+
+decompose.py
+
+decompose (task):
+    create folder and a .md file both with same name (task_${task_name}), and content is task
+    agent (decompose_prompt(task))
+    set seen task
+    For each markdown file not seen:
+        set seen
+        get complexity // do this just by searching for first word in .md file 'simple' or 'complex'
+        if complex:
+            decompose (markdown) //markdown here is the subtask
+
+decompose_prompt: This prompt will encourage agent to create markdown files for the main task, and for each subtask, and specify the complexity of each subtask. (plus any other nice little things to have in the .md file, title, summary, current solution tree with the one line summaries, etc.)
+
+
+solve.py
+
+first, tree search on our tasks folder, and do reverse level-order traversal, or perhaps postorder traversal, to start on most nested tasks .md file (technically not necessary).
+ solve (task):
+    if has_child_or_dependency:
+        dependent = get_dependent(task) //just looks in the markdown for links
+        solve(dependent)
+
+    agent(solve_prompt(task))
+
+solve_prompt: common tips for coding agents to solve a problem well given a task / plan.
+
+
+in the future we can have 
+
+detect_circular_dependencies, which we would run before solve(root_task) and just alert during the feedback period.
+
+
+
+Step 1:
+ understand this vision and desire to simplify our system. Read through how the current system works, how different is it? What would be the key changes? Why are we doing this? Will it be worth it?
+
+
+Step 2: be critical of this, what am I missing here? what functionality would we lose? Is it completely feasible? have I made logical mistakes?
+
+step 3: write a plan to have our system follow this more simple vision. Break it down into 3-4 core tasks. Have a markdown .md file with checkboxes [ ] to track progress.
