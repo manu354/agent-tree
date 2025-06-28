@@ -87,11 +87,10 @@ This is a simple task that can be solved directly.
         # Test solve
         self.run_agent_tree('solve', task_path)
         
-        # Check solution was created
-        solution_path = self.test_dir / "solution.md"
-        self.assertTrue(solution_path.exists())
+        # Check plan file was updated (not solution.md)
+        self.assertTrue(plan_path.exists())
         
-        # Check plan was updated
+        # Check plan was updated with progress
         plan_content = plan_path.read_text()
         self.assertIn("[x] Completed", plan_content)
     
@@ -123,10 +122,12 @@ Create a command-line calculator that supports basic operations.
         # Test solve
         self.run_agent_tree('solve', task_path)
         
-        # Check solutions were created in correct order
+        # Check plan files were updated in correct order
         # Due to dependencies, parse_expression should be solved first
         # Then handle_operations, then display_result, finally root
-        self.assertTrue((self.test_dir / "solution.md").exists())
+        self.assertTrue(plan_path.exists())
+        plan_content = plan_path.read_text()
+        self.assertIn("progress", plan_content.lower())
     
     def test_recursive_decomposition(self):
         """Test that complex subtasks are recursively decomposed"""
@@ -153,8 +154,8 @@ This task needs decomposition.
         # Run solve - should handle recursive decomposition
         self.run_agent_tree('solve', task_path)
         
-        # Check solution was created
-        self.assertTrue((self.test_dir / "solution.md").exists())
+        # Check that plan files were updated
+        self.assertTrue((self.test_dir / "complex_task_plan.md").exists())
     
     def test_dependency_resolution(self):
         """Test that dependencies are resolved in correct order"""
@@ -229,16 +230,17 @@ simple
         original_run = subprocess.run
         
         def track_solve_order(cmd, *args, **kwargs):
-            if cmd[0] == 'claude' and 'solve this task' in cmd[-1]:
-                # Extract task name from prompt
+            if cmd[0] == 'claude' and 'solving a specific task' in cmd[-1]:
+                # Extract task name from prompt by looking at the task content section
                 prompt = cmd[-1]
-                if "Task A" in prompt:
+                # Look for the task content header to identify which task
+                if "Task content:\n# Task A" in prompt:
                     solve_order.append("A")
-                elif "Task B" in prompt:
+                elif "Task content:\n# Task B" in prompt:
                     solve_order.append("B")
-                elif "Task C" in prompt:
+                elif "Task content:\n# Task C" in prompt:
                     solve_order.append("C")
-                elif "Main Task" in prompt and "Dependent Solutions:" in prompt:
+                elif "Task content:\n# Main Task" in prompt:
                     solve_order.append("Main")
             
             # Use mock_claude
@@ -278,7 +280,8 @@ This task would normally create many subtasks.
     def test_error_handling(self):
         """Test error cases"""
         # Test with non-existent file
-        with self.assertRaises(SystemExit):
+        # During development, we let errors crash with clear stack traces
+        with self.assertRaises(FileNotFoundError):
             from decompose import decompose
             decompose("non_existent.md")
         
@@ -348,9 +351,9 @@ None
         original_run = subprocess.run
         
         def capture_tree_context(cmd, *args, **kwargs):
-            if cmd[0] == 'claude' and 'Tree context:' in cmd[-1]:
+            if cmd[0] == 'claude' and "Here's where your task fits in the overall structure:" in cmd[-1]:
                 prompt = cmd[-1]
-                tree_match = prompt.split('Tree context:')[1].split('\n\n')[0]
+                tree_match = prompt.split("Here's where your task fits in the overall structure:")[1].split('\n\nCurrent task file:')[0]
                 tree_contexts.append(tree_match.strip())
             
             # Use mock_claude

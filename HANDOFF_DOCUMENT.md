@@ -34,8 +34,9 @@ cat solve.py           # Bottom-up solving with dependencies
 - ✅ Core modules implemented and working
 - ✅ Entry point supports `decompose` and `solve` subcommands
 - ✅ File structure follows the plan (_plan.md, _children/ folders)
-- ❌ Integration tests failing due to interface mismatches
-- ❌ Mock Claude needs updates to match actual behavior
+- ✅ All integration tests passing (7/7)
+- ✅ Mock Claude updated to match actual behavior
+- ✅ Codebase cleaned - removed src/, development artifacts, tmp files
 
 ## Step 2: Review Module Contracts and Interfaces
 
@@ -46,46 +47,48 @@ Read **docs/implementation/module_contracts.md** to understand:
 
 This is critical for fixing the test failures.
 
-## Step 3: Understand the Test Failures
+## Step 3: Testing Status
 
-### Run tests to see current state:
+### All tests are now passing:
 ```bash
 # Run integration tests
 python -m pytest tests/integration/test_integration.py -v
+# Result: 7 passed
 
-# Key failures to fix:
-# 1. Mock claude prompt matching ("solving a specific task" vs "solve this task")
-# 2. File creation expectations (plan files vs solution files)
-# 3. Decompose file structure creation
+# Run all tests
+python -m pytest -v
 ```
 
-### Files to examine for fixes:
-1. **tests/integration/mock_claude.py** - Needs updates to:
-   - Match actual prompt patterns
-   - Create correct file structure
-   - Update plan files instead of creating solution.md
+### Completed fixes:
+1. **tests/integration/mock_claude.py** - Updated to:
+   - ✅ Match actual prompt patterns ("solving a specific task")
+   - ✅ Create correct file structure with plan files
+   - ✅ Update plan files instead of creating solution.md
+   - ✅ Fixed f-string escaping for code blocks
 
-2. **tests/integration/test_integration.py** - Needs updates to:
-   - Look for correct prompt text
-   - Check for plan file updates instead of solution.md
-   - Match actual system behavior
+2. **tests/integration/test_integration.py** - Updated to:
+   - ✅ Look for correct prompt text in solve tracking
+   - ✅ Check for plan file updates instead of solution.md
+   - ✅ Match actual system behavior (FileNotFoundError not SystemExit)
+   - ✅ Fixed tree context capture pattern
 
-## Step 4: Fix Integration Tests
+## Step 4: Clean Up Status (Completed by agent-tree)
 
-### Priority fixes:
+Based on `complete_simplification_children/clean_codebase_plan.md`, the following cleanup has been completed:
 
-1. **Update mock_claude.py line 18**:
-   ```python
-   elif "solving a specific task" in prompt:  # Was "solve this task"
-   ```
+1. **Removed development artifacts**:
+   - ✅ `/development_artifacts/` directory
+   - ✅ `/docs/tmp/` directory
+   - ✅ Test execution directories in `/root/` and `/examples/root/`
 
-2. **Update file creation in mock_claude.py**:
-   - Ensure decompose creates: `{name}_plan.md` and `{name}_children/`
-   - Ensure solve updates plan files, not creates solution.md
+2. **Removed development tracking files**:
+   - ✅ Planning documents that are no longer needed
+   - ✅ Temporary task files from our work session
 
-3. **Update test assertions**:
-   - Change assertions looking for "solution.md" to check plan file updates
-   - Fix dependency test to match actual prompt text
+3. **Removed old implementation**:
+   - ✅ `/src/` directory containing the old monolithic code
+   - ✅ Old unit tests that depended on src/
+   - ✅ Old live_system tests that used the previous architecture
 
 ## Step 5: Test the Full Workflow
 
@@ -112,21 +115,24 @@ python agent_tree.py solve test_scraper.md
 # Check results in plan files
 ```
 
-## Step 6: Clean Up and Finalize
+## Step 6: Final Steps Remaining
 
-1. **Remove development artifacts**:
+1. **Verify clean structure** (mostly done):
    ```bash
-   rm -rf development_artifacts/
-   rm -rf tmp/
+   # The codebase has been cleaned to this structure:
+   agent-tree/
+   ├── agent_tree.py         # Main entry point
+   ├── decompose.py          # Decompose command
+   ├── solve.py              # Solve command
+   ├── tests/                # Integration + new unit tests only
+   ├── docs/                 # Documentation
+   ├── README.md            # Needs updating with new examples
+   └── [config files]
    ```
 
-2. **Consider old code removal**:
-   - Decide if `src/` directory should be removed
-   - Keep for reference or remove for clarity
-
-3. **Update documentation**:
+2. **Update documentation**:
    - Update README with new usage examples
-   - Add example workflow to docs/
+   - Add example workflow showing decompose → review → solve
 
 ## Key Files Reference
 
@@ -173,11 +179,11 @@ black agent_tree.py decompose.py solve.py
 
 ## Next Steps Summary
 
-1. Fix mock_claude.py to match actual prompts and file creation
-2. Update test assertions to match system behavior  
-3. Run full test suite
-4. Test with real example end-to-end
-5. Clean up artifacts
-6. Update user documentation
+1. ✅ Fixed mock_claude.py to match actual prompts and file creation
+2. ✅ Updated test assertions to match system behavior  
+3. ✅ All tests passing (integration tests: 7/7)
+4. ✅ Tested agent-tree with real Claude (decompose works well)
+5. ✅ Cleaned up artifacts (via agent-tree solve command)
+6. ⏳ Update user documentation (README needs new examples)
 
-The system is 90% complete - just needs test fixes and cleanup!
+The system is 98% complete - just needs documentation updates!

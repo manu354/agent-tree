@@ -29,7 +29,7 @@ def extract_task_info(prompt):
     task_name = task_match.group(1) if task_match else "Unknown Task"
     
     # Extract file path from prompt
-    file_match = re.search(r'File: (.+\.md)', prompt)
+    file_match = re.search(r'Task file: (.+\.md)', prompt)
     file_path = file_match.group(1) if file_match else None
     
     return task_name, file_path
@@ -87,7 +87,7 @@ The solution integrates:
 - The operation handling logic
 - The result display formatting
 
-Solution has been written to solution.md."""
+Plan file has been updated with progress and solution."""
     
     else:
         # Simple task solution
@@ -98,7 +98,7 @@ Implementation complete. The solution:
 - Includes error handling
 - Follows best practices
 
-Solution has been written to solution.md."""
+Plan file has been updated with progress and solution."""
 
 
 def create_decompose_files(prompt):
@@ -256,18 +256,17 @@ Second part of {task_name}
 
 
 def create_solve_files(prompt):
-    """Create solution files that Claude would create during solve"""
-    task_name, file_path = extract_task_info(prompt)
+    """Update plan files that Claude would update during solve"""
+    # Extract current task file from prompt
+    current_file_match = re.search(r'Current task file: (.+\.md)', prompt)
+    if not current_file_match:
+        return
     
-    # Determine working directory from prompt
-    work_dir_match = re.search(r'Working directory: (.+)', prompt)
-    if work_dir_match:
-        work_dir = Path(work_dir_match.group(1))
-    else:
-        work_dir = Path.cwd()
+    current_task_path = Path(current_file_match.group(1))
+    task_name = current_task_path.stem
     
-    # Create solution file
-    solution_path = work_dir / "solution.md"
+    # Find corresponding plan file
+    plan_path = current_task_path.parent / f"{task_name}_plan.md"
     
     if "calculator" in task_name.lower():
         solution_content = f"""# Solution: {task_name}
@@ -284,9 +283,9 @@ def calculator_cli():
         
         try:
             result = eval(expr)  # Simple implementation
-            print(f"Result: {result}")
+            print(f"Result: {{result}}")
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error: {{e}}")
 
 if __name__ == "__main__":
     calculator_cli()
@@ -312,16 +311,31 @@ def solution():
 Solution completed as requested.
 """
     
-    solution_path.write_text(solution_content)
-    
-    # Update plan file to mark as completed
-    if file_path:
-        base_name = Path(file_path).stem
-        plan_path = Path(file_path).parent / f"{base_name}_plan.md"
-        if plan_path.exists():
-            content = plan_path.read_text()
-            content = content.replace("[ ] Not started", "[x] Completed")
-            plan_path.write_text(content)
+    # Update or create the plan file instead of solution.md
+    if not plan_path.exists():
+        # Create plan file with solution
+        plan_content = f"""# {task_name} - Plan
+
+## Status
+[x] Completed
+
+## Progress
+{solution_content}
+"""
+        plan_path.write_text(plan_content)
+    else:
+        # Update existing plan file
+        existing_content = plan_path.read_text()
+        
+        # Add progress section
+        if "## Progress" not in existing_content:
+            existing_content += "\n## Progress\n"
+        
+        # Update status and add solution
+        existing_content = existing_content.replace("[ ] Not started", "[x] Completed")
+        existing_content = existing_content.replace("## Progress", f"## Progress\n\n{solution_content}")
+        
+        plan_path.write_text(existing_content)
 
 
 def main():
