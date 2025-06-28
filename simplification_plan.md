@@ -199,10 +199,20 @@ Note: These are post-MVP features. During development, let errors crash with cle
 - [x] Entry point supports decompose/solve subcommands
 - [x] Decompose module with recursive logic and Claude integration
 - [x] Solve module with dependency resolution and tree context
-- [ ] Integration testing needed
-- [ ] Move modules to proper location
-- [ ] Remove old code from src/
-- [ ] Update documentation
+- [x] Integration tests created (need minor fixes)
+- [x] Test suite reorganized into tests/ directory
+- [x] Documentation updated (README, workflow guide)
+- [ ] Fix remaining test failures
+- [ ] Clean up temporary files
+- [ ] Remove old src/ code
+- [ ] Final testing of full workflow
+
+### Next Steps
+1. Fix interface mismatches in tests
+2. Run full test suite to verify
+3. Test with real example end-to-end
+4. Clean up development artifacts
+5. Consider moving to src/ if desired
 
 ## Example Usage
 

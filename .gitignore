@@ -50,6 +50,13 @@ tmp/
 workspace/
 *.log
 results/
+development_artifacts/
+*.marker
+old_src_backup/
 
 # Keep workspace directory structure
 !workspace/.gitkeep
+
+# Claude-specific
+CLAUDE.md
+.serena/
