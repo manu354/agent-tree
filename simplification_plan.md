@@ -135,46 +135,46 @@ sequenceDiagram
 
 ## Core Tasks
 
-### 1. Extract and Refactor Decomposition Logic
-- [ ] Create new `decompose.py` module
-- [ ] Extract decomposition logic from `src/agent_tree.py`
-- [ ] Implement new folder/file structure:
+### 1. Extract and Refactor Decomposition Logic ✅
+- [x] Create new `decompose.py` module
+- [x] Extract decomposition logic from `src/agent_tree.py`
+- [x] Implement new folder/file structure:
   - Task files: `{name}.md`
   - Plan files: `{name}_plan.md` 
   - Children: `{name}_children/` folder
-- [ ] Create `decompose_prompt` that:
+- [x] Create `decompose_prompt` that:
   - Creates a plan file with analysis and child links
   - Creates children tasks in `_children/` folder
   - Marks each child as simple or complex
   - Includes `### Dependents` section where needed
-- [ ] Keep 5-node limit using global counter
-- [ ] Implement complexity detection from markdown
-- [ ] Add recursive decomposition without file moving
+- [x] Keep 5-node limit using global counter
+- [x] Implement complexity detection from markdown
+- [x] Add recursive decomposition without file moving
 
-### 2. Create Independent Solve Module
-- [ ] Create new `solve.py` module
-- [ ] Implement postorder traversal to solve leaves first
-- [ ] Implement `get_dependents()`:
+### 2. Create Independent Solve Module ✅
+- [x] Create new `solve.py` module
+- [x] Implement postorder traversal to solve leaves first
+- [x] Implement `get_dependents()`:
   - Parse `### Dependents` section from task files
   - Extract markdown links to other .md files
   - Return list of dependent file paths
-- [ ] Implement `generate_tree_with_summaries()`:
+- [x] Implement `generate_tree_with_summaries()`:
   - Build tree structure of all task files
   - Extract one-line summary from each task
   - Mark current task with [YOU ARE HERE]
-- [ ] Create `solve_prompt` that:
+- [x] Create `solve_prompt` that:
   - Includes tree context
   - Explains agent can read other files if needed
   - Contains coding best practices
-- [ ] Update plan files with progress and results (no separate solution files)
-- [ ] Handle solution integration for parent tasks
-- [ ] Add progress tracking (mark as seen/processed)
+- [x] Update plan files with progress and results (no separate solution files)
+- [x] Handle solution integration for parent tasks
+- [x] Add progress tracking (mark as seen/processed)
 
-### 3. Update Main Entry Point
-- [ ] Modify `agent_tree.py` to support two subcommands
-- [ ] `python agent_tree.py decompose task_file.md`
-- [ ] `python agent_tree.py solve task_file.md`
-- [ ] Add --help for each subcommand
+### 3. Update Main Entry Point ✅
+- [x] Modify `agent_tree.py` to support two subcommands
+- [x] `python agent_tree.py decompose task_file.md`
+- [x] `python agent_tree.py solve task_file.md`
+- [x] Add --help for each subcommand
 - [ ] Update documentation and examples
 
 ### 4. Enhance Robustness and Features (Post-MVP)
@@ -187,14 +187,22 @@ sequenceDiagram
 
 Note: These are post-MVP features. During development, let errors crash with clear stack traces.
 
-## Implementation Strategy
+## Implementation Progress
 
-1. **Step 1**: Refactor existing `agent_tree.py` to support subcommands
-2. **Step 2**: Extract decomposition logic into `decompose.py`, replacing old logic
-3. **Step 3**: Extract solve logic into `solve.py`, replacing old logic
-4. **Step 4**: Update tests incrementally as we refactor each component
+1. **Step 1**: ✅ Refactored `agent_tree.py` with subcommands
+2. **Step 2**: ✅ Created `decompose.py` module  
+3. **Step 3**: ✅ Created `solve.py` module
+4. **Step 4**: 🔄 **NEXT: Integration testing and cleanup**
 
-No parallel implementations, no deprecation - just incremental evolution of the existing system.
+### Current Status (June 28, 2025)
+- [x] All three core modules implemented by parallel agents
+- [x] Entry point supports decompose/solve subcommands
+- [x] Decompose module with recursive logic and Claude integration
+- [x] Solve module with dependency resolution and tree context
+- [ ] Integration testing needed
+- [ ] Move modules to proper location
+- [ ] Remove old code from src/
+- [ ] Update documentation
 
 ## Example Usage
 
